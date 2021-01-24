@@ -197,7 +197,7 @@ namespace WebApplicationAPI.Controllers
         /// Get new access token and refresh token
         /// </summary>
         /// <param name="refreshToken"></param>
-        /// <returns></returns>
+        /// <returns><see cref="Task{TResult}"/></returns>
         [HttpPost]
         [AllowAnonymous]
         [Route("refreshToken")]
