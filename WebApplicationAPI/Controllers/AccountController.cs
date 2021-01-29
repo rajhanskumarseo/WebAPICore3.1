@@ -10,6 +10,7 @@ using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
 using System.Linq;
+using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -24,16 +25,19 @@ namespace WebApplicationAPI.Controllers
     {
         private readonly UserManager<IdentityUser> userManager;
         private readonly RoleManager<IdentityRole> roleManager;
+        private readonly SignInManager<IdentityUser> signInManager;
         private readonly IConfiguration _configuration;
         private readonly ApplicationDbContext databaseContext;
 
         public AccountController(UserManager<IdentityUser> userManager
             , RoleManager<IdentityRole> roleManager
+            , SignInManager<IdentityUser> signInManager
             , IConfiguration configuration
             , ApplicationDbContext applicationDbContext)
         {
             this.userManager = userManager;
             this.roleManager = roleManager;
+            this.signInManager = signInManager;
             _configuration = configuration;
             databaseContext = applicationDbContext;
         }
@@ -49,7 +53,9 @@ namespace WebApplicationAPI.Controllers
         public async Task<IActionResult> Login([FromBody] Login loginModel)
         {
             var user = await userManager.FindByNameAsync(loginModel.Username);
-            if (user != null && await userManager.CheckPasswordAsync(user, loginModel.Password))
+            if (user != null
+                &&  await userManager.CheckPasswordAsync(user, loginModel.Password)
+                && (await signInManager.PasswordSignInAsync(user, loginModel.Password, false, false)).Succeeded)
             {
                 RefreshTokenModel refreshTokenModel = await GenerateAccessToken(user);
 
@@ -141,7 +147,7 @@ namespace WebApplicationAPI.Controllers
         [HttpPost]
         [AllowAnonymous]
         [Route("register")]
-        public async Task<IActionResult> RegisterAdmin([FromBody] Register registerModel)
+        public async Task<IActionResult> Registration([FromBody] Register registerModel)
         {
             var userExists = await userManager.FindByNameAsync(registerModel.Username);
             if (userExists != null)
@@ -207,6 +213,8 @@ namespace WebApplicationAPI.Controllers
 
             if (user != null && ValidateRefreshToken(user, refreshToken.RefreshToken))
             {
+                await signInManager.RefreshSignInAsync(user);
+
                 RefreshTokenModel refreshTokenModel = await GenerateAccessToken(user);
 
                 return Ok(new
@@ -281,6 +289,61 @@ namespace WebApplicationAPI.Controllers
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Logout
+        /// </summary>
+        /// <returns></returns>
+        [HttpPost]
+        [Route("logout")]
+        public async Task<IActionResult> Logout()
+        {
+            await signInManager.SignOutAsync();
+
+            var response = new Response
+            {
+                Message = "Logout success!",
+                Status = "Success"
+            };
+
+            return Ok(response);
+        }
+
+        [HttpPost]
+        [Route("updateProfile")]
+        public async Task<IActionResult> UpdateProfile(Profile profile)
+        {
+            if(profile == null)
+            {
+                return BadRequest();
+            }
+
+            // Update record using entity framework in .Net Core
+
+            var currentUserId = User.Claims.ToList().FirstOrDefault(x => x.Type == "id").Value;
+
+            var profileInfo = databaseContext.Profiles.FirstOrDefault(x => x.UserId == currentUserId);
+
+            if (profileInfo != null)
+            {
+                profile.Id = profileInfo.Id;
+                profile.UserId = !string.IsNullOrEmpty(profile.UserId) ? profile.UserId : profileInfo.UserId;
+                profile.Address1 = !string.IsNullOrEmpty(profile.Address1) ? profile.Address1 : profileInfo.Address1;
+                profile.Address2 = !string.IsNullOrEmpty(profile.Address2) ? profile.Address2 : profileInfo.Address2;
+                profile.City = !string.IsNullOrEmpty(profile.City) ? profile.City : profileInfo.City;
+                profile.State = !string.IsNullOrEmpty(profile.State) ? profile.State : profileInfo.State;
+                profile.Pin = !string.IsNullOrEmpty(profile.Pin) ? profile.Pin : profileInfo.Pin;
+                profile.CountryCode = !string.IsNullOrEmpty(profile.CountryCode) ? profile.CountryCode : profileInfo.CountryCode;
+
+                
+                databaseContext.Entry(profileInfo).CurrentValues.SetValues(profile);
+                
+
+                await databaseContext.SaveChangesAsync();
+            }
+
+            return Ok();
         }
     }
 }
