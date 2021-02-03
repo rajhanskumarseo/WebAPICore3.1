@@ -18,6 +18,8 @@
 
   <ItemGroup>
     <ProjectReference Include="..\ClassLibrary.Model\ClassLibrary.Model.csproj" />
+    <ProjectReference Include="..\DataAccessLayer\DataAccessLayer.csproj" />
+    <ProjectReference Include="..\RepositoryServices\RepositoryServices.csproj" />
   </ItemGroup>
 
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using DataAccessLayer;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
@@ -15,6 +16,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 using Microsoft.IdentityModel.Tokens;
+using RepositoryServices.Implementations;
+using RepositoryServices.Interfaces;
 
 namespace WebApplicationAPI
 {
@@ -69,6 +72,8 @@ namespace WebApplicationAPI
                 options.TokenValidationParameters = tokenValidationParameter;
                 options.ClaimsIssuer = Configuration["JWT:ValidIssuer"];
             });
+
+            services.AddTransient<IAccountRepository, AccountRepository>();
 
             services.AddSwaggerGen(options =>
             {

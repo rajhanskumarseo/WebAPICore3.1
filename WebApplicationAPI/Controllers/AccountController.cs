@@ -1,11 +1,13 @@
 ﻿using ClassLibrary.Model.Models;
 using ClassLibrary.Model.Models.DbModel;
+using DataAccessLayer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using RepositoryServices.Interfaces;
 using System;
 using System.Collections.Generic;
 using System.IdentityModel.Tokens.Jwt;
@@ -28,18 +30,21 @@ namespace WebApplicationAPI.Controllers
         private readonly SignInManager<IdentityUser> signInManager;
         private readonly IConfiguration _configuration;
         private readonly ApplicationDbContext databaseContext;
+        private readonly IAccountRepository accountRepository;
 
         public AccountController(UserManager<IdentityUser> userManager
             , RoleManager<IdentityRole> roleManager
             , SignInManager<IdentityUser> signInManager
             , IConfiguration configuration
-            , ApplicationDbContext applicationDbContext)
+            , ApplicationDbContext applicationDbContext
+            , IAccountRepository accountRepository)
         {
             this.userManager = userManager;
             this.roleManager = roleManager;
             this.signInManager = signInManager;
             _configuration = configuration;
             databaseContext = applicationDbContext;
+            this.accountRepository = accountRepository;
         }
 
         /// <summary>
@@ -314,36 +319,31 @@ namespace WebApplicationAPI.Controllers
         [Route("updateProfile")]
         public async Task<IActionResult> UpdateProfile(Profile profile)
         {
-            if(profile == null)
+            try
             {
+                if (profile == null)
+                {
+                    return BadRequest();
+                }
+
+                // Update record using entity framework in .Net Core
+
+                var currentUserId = User.Claims.ToList().FirstOrDefault(x => x.Type == "id").Value;
+
+                bool result = await accountRepository.UpdateProfileAsync(profile, currentUserId);
+
+                if (result)
+                {
+                    return Ok();
+                }
+
                 return BadRequest();
             }
-
-            // Update record using entity framework in .Net Core
-
-            var currentUserId = User.Claims.ToList().FirstOrDefault(x => x.Type == "id").Value;
-
-            var profileInfo = databaseContext.Profiles.FirstOrDefault(x => x.UserId == currentUserId);
-
-            if (profileInfo != null)
+            catch (Exception)
             {
-                profile.Id = profileInfo.Id;
-                profile.UserId = !string.IsNullOrEmpty(profile.UserId) ? profile.UserId : profileInfo.UserId;
-                profile.Address1 = !string.IsNullOrEmpty(profile.Address1) ? profile.Address1 : profileInfo.Address1;
-                profile.Address2 = !string.IsNullOrEmpty(profile.Address2) ? profile.Address2 : profileInfo.Address2;
-                profile.City = !string.IsNullOrEmpty(profile.City) ? profile.City : profileInfo.City;
-                profile.State = !string.IsNullOrEmpty(profile.State) ? profile.State : profileInfo.State;
-                profile.Pin = !string.IsNullOrEmpty(profile.Pin) ? profile.Pin : profileInfo.Pin;
-                profile.CountryCode = !string.IsNullOrEmpty(profile.CountryCode) ? profile.CountryCode : profileInfo.CountryCode;
 
-                
-                databaseContext.Entry(profileInfo).CurrentValues.SetValues(profile);
-                
-
-                await databaseContext.SaveChangesAsync();
+                throw;
             }
-
-            return Ok();
         }
     }
 }
