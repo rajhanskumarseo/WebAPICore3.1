@@ -32,6 +32,7 @@ namespace RepositoryServices.Implementations
                     profile.Address2 = !string.IsNullOrEmpty(profile.Address2) ? profile.Address2 : profileInfo.Address2;
                     profile.City = !string.IsNullOrEmpty(profile.City) ? profile.City : profileInfo.City;
                     profile.State = !string.IsNullOrEmpty(profile.State) ? profile.State : profileInfo.State;
+                    profile.Landmark = !string.IsNullOrEmpty(profile.Landmark) ? profile.Landmark : profileInfo.Landmark;
                     profile.Pin = !string.IsNullOrEmpty(profile.Pin) ? profile.Pin : profileInfo.Pin;
                     profile.CountryCode = !string.IsNullOrEmpty(profile.CountryCode) ? profile.CountryCode : profileInfo.CountryCode;
 

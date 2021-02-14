@@ -1,4 +1,5 @@
 ﻿using ClassLibrary.Model.Models.DbModel;
+using ClassLibrary.Model.Models.SpModel;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore;
@@ -19,5 +20,7 @@ namespace DataAccessLayer
         public DbSet<Profile> Profiles { get; set; }
 
         public DbSet<RefreshToken> RefreshTokens { get; set; }
+
+        public DbSet<GetUserById> GetUserByIds { get; set; }
     }
 }

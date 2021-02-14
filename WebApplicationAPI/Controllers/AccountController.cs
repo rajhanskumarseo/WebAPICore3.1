@@ -1,10 +1,13 @@
 ﻿using ClassLibrary.Model.Models;
 using ClassLibrary.Model.Models.DbModel;
+using ClassLibrary.Model.Models.SpModel;
 using DataAccessLayer;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Data.SqlClient;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using RepositoryServices.Interfaces;
@@ -315,13 +318,18 @@ namespace WebApplicationAPI.Controllers
             return Ok(response);
         }
 
+        /// <summary>
+        /// Update Profile
+        /// </summary>
+        /// <param name="profileModel"></param>
+        /// <returns></returns>
         [HttpPost]
         [Route("updateProfile")]
-        public async Task<IActionResult> UpdateProfile(Profile profile)
+        public async Task<IActionResult> UpdateProfile(ProfileModel profileModel)
         {
             try
             {
-                if (profile == null)
+                if (profileModel == null)
                 {
                     return BadRequest();
                 }
@@ -329,6 +337,17 @@ namespace WebApplicationAPI.Controllers
                 // Update record using entity framework in .Net Core
 
                 var currentUserId = User.Claims.ToList().FirstOrDefault(x => x.Type == "id").Value;
+
+                var profile = new Profile
+                {
+                    Address1 = profileModel.Address1,
+                    Address2 = profileModel.Address2,
+                    City = profileModel.City,
+                    State = profileModel.State,
+                    Landmark = profileModel.Landmark,
+                    Pin = profileModel.Pin,
+                    CountryCode = profileModel.CountryCode
+                };
 
                 bool result = await accountRepository.UpdateProfileAsync(profile, currentUserId);
 
@@ -344,6 +363,24 @@ namespace WebApplicationAPI.Controllers
 
                 throw;
             }
+        }
+
+        /// <summary>
+        /// Get profile
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("Profile")]
+        public async Task<IActionResult> GetProfile()
+        {
+            // Getting currently loggedIn userId
+            var currentUserId = User.Claims.ToList().FirstOrDefault(x => x.Type == "id").Value;
+
+            SqlParameter userIdParameter = new SqlParameter("@userId", currentUserId);
+
+            var userProfile = (await databaseContext.GetUserByIds.FromSqlRaw("Exec GetProfile @userId", userIdParameter).ToListAsync()).FirstOrDefault();
+
+            return Ok(userProfile);
         }
     }
 }
