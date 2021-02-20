@@ -376,9 +376,7 @@ namespace WebApplicationAPI.Controllers
             // Getting currently loggedIn userId
             var currentUserId = User.Claims.ToList().FirstOrDefault(x => x.Type == "id").Value;
 
-            SqlParameter userIdParameter = new SqlParameter("@userId", currentUserId);
-
-            var userProfile = (await databaseContext.GetUserByIds.FromSqlRaw("Exec GetProfile @userId", userIdParameter).ToListAsync()).FirstOrDefault();
+            var userProfile = (await databaseContext.GetUserByIds.FromSqlInterpolated($"Exec GetProfile @userId = {currentUserId}").ToListAsync()).FirstOrDefault();
 
             return Ok(userProfile);
         }
