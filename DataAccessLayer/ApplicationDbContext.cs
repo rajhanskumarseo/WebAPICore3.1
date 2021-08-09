@@ -22,5 +22,7 @@ namespace DataAccessLayer
         public DbSet<RefreshToken> RefreshTokens { get; set; }
 
         public DbSet<GetUserById> GetUserByIds { get; set; }
+
+        public DbSet<ResetPassword> ResetPasswords { get; set; }
     }
 }

@@ -10,12 +10,20 @@ using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
+using Newtonsoft.Json;
+using RepositoryServices;
 using RepositoryServices.Interfaces;
+using RepositoryServices.StaticMethods;
+using RestSharp;
 using System;
 using System.Collections.Generic;
+using System.Drawing;
+using System.Drawing.Imaging;
 using System.IdentityModel.Tokens.Jwt;
+using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Http;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
@@ -62,7 +70,7 @@ namespace WebApplicationAPI.Controllers
         {
             var user = await userManager.FindByNameAsync(loginModel.Username);
             if (user != null
-                &&  await userManager.CheckPasswordAsync(user, loginModel.Password)
+                && await userManager.CheckPasswordAsync(user, loginModel.Password)
                 && (await signInManager.PasswordSignInAsync(user, loginModel.Password, false, false)).Succeeded)
             {
                 RefreshTokenModel refreshTokenModel = await GenerateAccessToken(user);
@@ -109,7 +117,7 @@ namespace WebApplicationAPI.Controllers
                 claims: authClaims,
                 signingCredentials: new SigningCredentials(authSigningKey, SecurityAlgorithms.HmacSha256)
             );
-            
+
             var refreshTokenModel = new RefreshTokenModel
             {
                 RefreshToken = (await GenerateRefreshToken(user.Id, token.Id)).Token,
@@ -379,6 +387,258 @@ namespace WebApplicationAPI.Controllers
             var userProfile = (await databaseContext.GetUserByIds.FromSqlInterpolated($"Exec GetProfile @userId = {currentUserId}").ToListAsync()).FirstOrDefault();
 
             return Ok(userProfile);
+        }
+
+        /// <summary>
+        /// Get users
+        /// </summary>
+        /// <returns></returns>
+        [HttpGet]
+        [Route("Users")]
+        public async Task<IActionResult> GetUsers(int offset, int limit)
+        {
+            var users = (await databaseContext.GetUserByIds.FromSqlInterpolated($"Exec GetUsers @offset = {offset}, @limit = {limit}").ToListAsync());
+
+            return Ok(users);
+        }
+
+        [AllowAnonymous]
+        [Route("UploadImage")]
+        public async Task<IActionResult> UploadImage(UploadImage imageDetails)
+        {
+            byte[] bytes = Convert.FromBase64String(imageDetails.Image);
+
+            Image image;
+            using (MemoryStream ms = new MemoryStream(bytes))
+            {
+                image = Image.FromStream(ms);
+            }
+
+            image.Save("wwwroot/xyz." + imageDetails.Type, ImageFormat.Png);
+
+            return Ok();
+        }
+
+        [AllowAnonymous]
+        [Route("CallAPI")]
+        [HttpGet]
+        public async Task<IActionResult> CallAPI()
+        {
+            // Call Get API
+            //using (var client = new HttpClient())
+            //{
+            //    client.BaseAddress = new Uri("https://jsonplaceholder.typicode.com/");
+
+            //    using (HttpResponseMessage response = await client.GetAsync("todos/1"))
+            //    {
+            //        var responseContent = response.Content.ReadAsStringAsync().Result;
+            //        response.EnsureSuccessStatusCode();
+
+            //        return Ok(responseContent);
+            //    }
+            //}
+
+            // Call POST API
+            //using (var client = new HttpClient())
+            //{
+            //    client.BaseAddress = new Uri("https://jsonplaceholder.typicode.com/");
+
+            //    var postData = new
+            //    {
+            //        title = "foo",
+            //        body = "bar",
+            //        userId = 1
+            //    };
+
+            //    var content = new StringContent(JsonConvert.SerializeObject(postData), Encoding.UTF8, "application/json");
+
+            //    using (HttpResponseMessage response = await client.PostAsync("posts", content))
+            //    {
+            //        var responseContent = response.Content.ReadAsStringAsync().Result;
+            //        response.EnsureSuccessStatusCode();
+
+            //        return Ok(responseContent);
+            //    }
+            //}
+
+            // Call PUT API
+            //using (var client = new HttpClient())
+            //{
+            //    client.BaseAddress = new Uri("https://jsonplaceholder.typicode.com/");
+
+            //    var postData = new
+            //    {
+            //        title = "foo",
+            //        body = "bar",
+            //        userId = 1,
+            //        id = 1
+            //    };
+
+            //    var content = new StringContent(JsonConvert.SerializeObject(postData), Encoding.UTF8, "application/json");
+
+            //    using (HttpResponseMessage response = await client.PutAsync("todos/1", content))
+            //    {
+            //        var responseContent = response.Content.ReadAsStringAsync().Result;
+            //        response.EnsureSuccessStatusCode();
+
+            //        return Ok(responseContent);
+            //    }
+            //}
+
+            // Call DELETE API
+            using (var client = new HttpClient())
+            {
+                client.BaseAddress = new Uri("https://jsonplaceholder.typicode.com/");
+
+                using (HttpResponseMessage response = await client.DeleteAsync("posts/1"))
+                {
+                    var responseContent = response.Content.ReadAsStringAsync().Result;
+                    response.EnsureSuccessStatusCode();
+
+                    return Ok(responseContent);
+                }
+            }
+        }
+
+        [AllowAnonymous]
+        [Route("CallAPIRS")]
+        [HttpGet]
+        public async Task<IActionResult> CallAPIRestSharp()
+        {
+            var client = new RestClient("https://jsonplaceholder.typicode.com/");
+
+            IRestRequest restRequest = new RestRequest("todos/1"
+                , Method.DELETE, DataFormat.Json);
+
+            var response = await client.ExecuteAsync(restRequest);
+
+            return Ok(response.Content);
+        }
+
+        [AllowAnonymous]
+        [Route("UploadFile")]
+        [HttpPost]
+        public async Task<IActionResult> UploadFile(UploadFile file)
+        {
+            var index = file.FileAsBase64.IndexOf(',');
+            var base64stringWithoutSignature = file.FileAsBase64.Substring(index+1);
+
+            index = file.FileAsBase64.IndexOf(';');
+            var base64signatue = file.FileAsBase64.Substring(0, index);
+            index = base64signatue.IndexOf("/");
+            var extension = base64signatue.Substring(index + 1);
+
+            byte[] bytes = Convert.FromBase64String(base64stringWithoutSignature);
+
+            await System.IO.File.WriteAllBytesAsync("wwwroot/xyz." + extension, bytes);
+
+            return Ok();
+        }
+
+        [HttpPost]
+        [Route("ChangePassword")]
+        public async Task<IActionResult> ChangePassword(ChangePassword changePassword)
+        {
+            // Get currently loggedin user Id
+            var currentUserId = User.Claims.ToList()
+                .FirstOrDefault(x => x.Type == "id").Value;
+
+            // Get Identity User details user user manager
+            var user = await userManager.FindByIdAsync(currentUserId);
+
+            // Change password using user manager
+            await userManager.ChangePasswordAsync(user,
+                changePassword.CurrentPassword, changePassword.NewPassword);
+
+            return Ok();
+        }
+
+        /// <summary>
+        /// Send Password Reset Token or Code
+        /// </summary>
+        /// <param name="email"></param>
+        /// <returns></returns>
+        [HttpPost]
+        [AllowAnonymous]
+        [Route("SendPasswordResetCode")]
+        public async Task<IActionResult> SendPasswordResetCode(string email)
+        {
+            if (string.IsNullOrEmpty(email))
+            {
+                return BadRequest("Email should not be null or empty");
+            }
+
+            // Get Identity User details user user manager
+            var user = await userManager.FindByNameAsync(email);
+
+            // Generate password reset token
+            var token = await userManager.GeneratePasswordResetTokenAsync(user);
+
+            // Generate OTP
+            int otp = RandomNumberGeneartor.Generate(100000, 999999);
+
+            var resetPassword = new ResetPassword()
+            {
+                Email = email,
+                OTP = otp.ToString(),
+                Token = token,
+                UserId = user.Id,
+                InsertDateTimeUTC = DateTime.UtcNow
+            };
+
+            // Save data into db with OTP
+            await databaseContext.AddAsync(resetPassword);
+            await databaseContext.SaveChangesAsync();
+
+            // to do: Send token in email
+            await EmailSender.SendEmailAsync(email, "Reset Password OTP", "Hello " 
+                + email + "<br><br>Please find the reset password token below<br><br><b>"
+                + otp + "<b><br><br>Thanks<br>oktests.com");
+
+            return Ok("Token sent successfully in email");
+        }
+
+        /// <summary>
+        /// Reset Password
+        /// </summary>
+        /// <param name="email"></param>
+        /// <param name="newPassword"></param>
+        /// <returns></returns>
+        [HttpPost]
+        [AllowAnonymous]
+        [Route("ResetPassword")]
+        public async Task<IActionResult> ResetPassword(string email, string otp, string newPassword)
+        {
+            if (string.IsNullOrEmpty(email) || string.IsNullOrEmpty(newPassword))
+            {
+                return BadRequest("Email & New Password should not be null or empty");
+            }
+
+            // Get Identity User details user user manager
+            var user = await userManager.FindByNameAsync(email);
+
+            // getting token from otp
+            var resetPasswordDetails = await databaseContext.ResetPasswords
+                .Where(rp => rp.OTP == otp && rp.UserId == user.Id)
+                .OrderByDescending(rp => rp.InsertDateTimeUTC)
+                .FirstOrDefaultAsync();
+
+            // Verify if token is older than 15 minutes
+            var expirationDateTimeUtc = resetPasswordDetails.InsertDateTimeUTC.AddMinutes(15);
+
+            if (expirationDateTimeUtc < DateTime.UtcNow)
+            {
+                return BadRequest("OTP is expired, please generate the new OTP");
+            }
+
+            var res = await userManager.ResetPasswordAsync(user, resetPasswordDetails.Token, newPassword);
+
+            if (!res.Succeeded)
+            {
+                return BadRequest();
+            }
+
+            return Ok();
         }
     }
 }
